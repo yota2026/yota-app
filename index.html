@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="YOTA電卓">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>YOTA 利確・損切り電卓</title>
+<style>
+:root {
+  --bg:#0b1220;
+  --card:#1f2937;
+  --inner:#0f172a;
+  --line:#334155;
+  --text:#f9fafb;
+  --muted:#cbd5e1;
+  --blue:#2563eb;
+  --green:#34d399;
+  --red:#f87171;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  min-height:100vh;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background: radial-gradient(circle at top, #162033 0%, var(--bg) 52%);
+  color:var(--text);
+}
+.app {
+  max-width:430px;
+  margin:0 auto;
+  background:rgba(31,41,55,.96);
+  border-radius:28px;
+  padding:24px;
+  box-shadow:0 24px 60px rgba(0,0,0,.45);
+}
+.badge {
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#111827;
+  color:#93c5fd;
+  font-weight:700;
+  font-size:12px;
+  margin-bottom:12px;
+}
+h1 { margin:0; font-size:30px; letter-spacing:.02em; }
+.sub { color:var(--muted); margin:8px 0 22px; font-size:16px; }
+label { display:block; margin:16px 0 7px; font-weight:800; font-size:17px; }
+input {
+  width:100%;
+  padding:16px;
+  border-radius:18px;
+  border:1px solid var(--line);
+  background:var(--inner);
+  color:white;
+  font-size:28px;
+  outline:none;
+}
+input:focus { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.18); }
+button {
+  width:100%;
+  margin-top:20px;
+  padding:17px;
+  border:0;
+  border-radius:18px;
+  background:linear-gradient(135deg,#2563eb,#3b82f6);
+  color:white;
+  font-size:21px;
+  font-weight:900;
+  box-shadow:0 12px 24px rgba(37,99,235,.28);
+}
+button:active { transform:scale(.985); }
+.grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:13px;
+  margin-top:22px;
+}
+.card {
+  background:var(--inner);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:17px;
+  min-height:104px;
+}
+.wide { grid-column:1/-1; }
+.title { color:var(--muted); font-size:14px; margin-bottom:10px; }
+.value { font-size:25px; font-weight:900; word-break:break-all; }
+.profit { color:var(--green); }
+.loss { color:var(--red); }
+.memo {
+  margin-top:20px;
+  color:var(--muted);
+  line-height:1.7;
+  font-size:14px;
+}
+.footer {
+  margin-top:16px;
+  font-size:12px;
+  color:#94a3b8;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="badge">YOTA SYSTEM</div>
+  <h1>利確・損切り電卓</h1>
+  <div class="sub">利確 +0.8% / 損切り -0.3%</div>
+
+  <label>買値（円）</label>
+  <input id="price" type="number" inputmode="decimal" placeholder="例：1000" oninput="calc()">
+
+  <label>株数</label>
+  <input id="shares" type="number" inputmode="numeric" placeholder="例：100" oninput="calc()">
+
+  <button onclick="calc()">計算する</button>
+
+  <div class="grid">
+    <div class="card">
+      <div class="title">利確価格</div>
+      <div class="value profit" id="take">-</div>
+    </div>
+    <div class="card">
+      <div class="title">損切り価格</div>
+      <div class="value loss" id="stop">-</div>
+    </div>
+    <div class="card">
+      <div class="title">利確益</div>
+      <div class="value profit" id="profit">-</div>
+    </div>
+    <div class="card">
+      <div class="title">損切り額</div>
+      <div class="value loss" id="loss">-</div>
+    </div>
+    <div class="card wide">
+      <div class="title">必要資金目安</div>
+      <div class="value" id="total">-</div>
+    </div>
+  </div>
+
+  <div class="memo">
+    ※ 実際の発注価格は呼値・板状況・証券会社の仕様を必ず確認。<br>
+    ※ 最終判断は必ず自分の目で確認。
+  </div>
+  <div class="footer">半自動売買サポート電卓</div>
+</div>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+}
+function yen(n) {
+  return Number(n).toLocaleString("ja-JP", {maximumFractionDigits: 1}) + "円";
+}
+function calc() {
+  const price = parseFloat(document.getElementById("price").value);
+  const shares = parseInt(document.getElementById("shares").value || "0", 10);
+  if (!price || !shares) {
+    ["take","stop","profit","loss","total"].forEach(id => document.getElementById(id).textContent = "-");
+    return;
+  }
+  const take = price * 1.008;
+  const stop = price * 0.997;
+  const profit = (take - price) * shares;
+  const loss = (price - stop) * shares;
+  const total = price * shares;
+  document.getElementById("take").textContent = yen(take);
+  document.getElementById("stop").textContent = yen(stop);
+  document.getElementById("profit").textContent = "+" + yen(profit);
+  document.getElementById("loss").textContent = "-" + yen(loss);
+  document.getElementById("total").textContent = yen(total);
+}
+</script>
+</body>
+</html>
