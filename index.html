@@ -112,7 +112,7 @@ button:active { transform:scale(.985); }
 <div class="app">
   <div class="badge">YOTA SYSTEM</div>
   <h1>利確・損切り電卓</h1>
-  <div class="sub">利確 +0.8% / 損切り -0.3%</div>
+  <div class="sub">利確 +3% / 損切り -1.5%</div>
 
   <label>買値（円）</label>
   <input id="price" type="number" inputmode="decimal" placeholder="例：1000" oninput="calc()">
@@ -166,8 +166,8 @@ function calc() {
     ["take","stop","profit","loss","total"].forEach(id => document.getElementById(id).textContent = "-");
     return;
   }
-  const take = price * 1.008;
-  const stop = price * 0.997;
+  const take = price * 1.03;
+  const stop = price * 0.985;
   const profit = (take - price) * shares;
   const loss = (price - stop) * shares;
   const total = price * shares;
